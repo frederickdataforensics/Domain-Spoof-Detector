@@ -6,6 +6,8 @@ from dataclasses import asdict
 from flask import Flask, render_template, request
 from local_threat_lookup import lookup_local_feed
 from whoisxml_lookup import WhoisXMLClient
+from result_summary import summarize_result
+from domain_structure import domain_parts
 from phishtank_feed import (
     build_phishtank_index,
     load_phishtank_json,
@@ -172,7 +174,15 @@ def create_app() -> Flask:
 
                 concern = {"high risk": "High", "suspicious": "Moderate"}.get(report.verdict, "Low")
                 report_data["concern"] = concern
+                boundary = domain_parts(report.ascii_hostname)
+                report_data["site_domain"] = (
+                    defang_hostname(boundary["domain"]) if boundary["domain"] else None
+                )
+                report_data["misleading_subdomain"] = any(
+                    f.reason == "Misleading trusted name in subdomain" for f in report.findings
+                )
                 labels = {
+                    "Misleading trusted name in subdomain": "The expected website name appears in front of a different site domain",
                     "Trusted-domain impersonation": "Closely resembles the expected website",
                     "ASCII look-alike substitution": "A number or letter was substituted",
                     "Mixed writing systems within a label": "Characters from different writing systems are mixed",
@@ -236,6 +246,14 @@ def create_app() -> Flask:
                     intelligence_findings.append(
                         whoisxml_client.lookup(report.ascii_hostname)
                     )
+
+                report_data["summary"] = summarize_result(
+                    report, intelligence_findings,
+                    test_data=app.config["FABRICATED_THREAT_LOOKUP_ENABLED"],
+                )
+                report_data["threat_listed"] = any(
+                    f.status == "listed" for f in intelligence_findings
+                )
 
                 if intelligence_findings:
                     intelligence_data = [
