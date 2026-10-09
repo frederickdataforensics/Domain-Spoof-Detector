@@ -5,6 +5,7 @@ from dataclasses import asdict
 
 from flask import Flask, render_template, request
 from local_threat_lookup import lookup_local_feed
+from whoisxml_lookup import WhoisXMLClient
 from phishtank_feed import (
     build_phishtank_index,
     load_phishtank_json,
@@ -34,6 +35,15 @@ def create_app() -> Flask:
     ).casefold()
     in {"1", "true", "yes"}
     )
+    app.config["WHOISXML_ENABLED"] = os.environ.get(
+        "FDF_ENABLE_WHOISXML", ""
+    ).casefold() in {"1", "true", "yes"}
+    whoisxml_client = WhoisXMLClient(os.environ.get("WHOISXML_API_KEY", ""))
+
+    @app.context_processor
+    def intelligence_configuration():
+        return {"whoisxml_enabled": app.config["WHOISXML_ENABLED"]}
+
     phishtank_feed_path = os.environ.get(
       "FDF_PHISHTANK_FEED_PATH",
         "",
@@ -160,6 +170,32 @@ def create_app() -> Flask:
                     ),
                 }.get(report.verdict, report.verdict)
 
+                concern = {"high risk": "High", "suspicious": "Moderate"}.get(report.verdict, "Low")
+                report_data["concern"] = concern
+                labels = {
+                    "Trusted-domain impersonation": "Closely resembles the expected website",
+                    "ASCII look-alike substitution": "A number or letter was substituted",
+                    "Mixed writing systems within a label": "Characters from different writing systems are mixed",
+                    "Unicode hostname": "The domain contains international characters; these can also be legitimate",
+                    "ASCII-like homoglyphs": "Some characters resemble ordinary letters",
+                    "Hyphen manipulation": "Hyphens change the expected website name",
+                    "Adjacent-character transposition": "Two neighboring characters are reversed",
+                    "ASCII typosquatting similarity": "The spelling is close to the expected website",
+                    "Punycode label": "The domain uses an encoded international name",
+                }
+                report_data["plain_findings"] = list(dict.fromkeys(
+                    labels.get(f.reason, f.reason) for f in report.findings
+                ))
+                report_data["character_explanations"] = []
+                if display_trusted and len(report.unicode_hostname) == len(display_trusted):
+                    for position, (actual, expected) in enumerate(
+                        zip(report.unicode_hostname, display_trusted), start=1
+                    ):
+                        if actual != expected:
+                            report_data["character_explanations"].append({
+                                "position": position, "actual": actual, "expected": expected,
+                            })
+
                 display_value = report.hostname
 
                 intelligence_findings = []
@@ -194,6 +230,11 @@ def create_app() -> Flask:
                 ]:
                     intelligence_findings.extend(
                         lookup_local_feed(value)
+                    )
+
+                if app.config["WHOISXML_ENABLED"]:
+                    intelligence_findings.append(
+                        whoisxml_client.lookup(report.ascii_hostname)
                     )
 
                 if intelligence_findings:

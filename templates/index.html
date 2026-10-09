@@ -27,7 +27,11 @@
       <h1>Suspicious Domain Checker</h1>
       <p class="lede">
         Analyze suspicious domain names for look-alike characters, deceptive spelling, and other impersonation indicators. 
-        *Known-phishing intelligence comparison is currently being prepared and is not yet available in the public tool.*
+        {% if whoisxml_enabled %}
+        A separate WhoisXML API check looks for threat records matching the hostname.
+        {% else %}
+        WhoisXML threat-intelligence lookup is not enabled.
+        {% endif %}
       </p>
     </header>
 
@@ -37,6 +41,11 @@
       Do not enter passwords, authentication codes, private document links,
       password-reset links, or URLs containing personal access tokens.
     </section>
+
+    {% if whoisxml_enabled %}
+    <p class="notice">The hostname is sent to WhoisXML API for a threat-intelligence lookup.
+      URL paths, query strings, and fragments are not sent. The full link is not checked.</p>
+    {% endif %}
 
     <form method="post" action="{{ url_for('analyze_submission') }}" class="checker-form">
       <label for="value">
@@ -101,168 +110,59 @@
 
     {% if report %}
       <section class="results" aria-live="polite">
-        <h2>Domain-Name Analysis</h2>
-
-        <section class="result-scope" aria-label="Result scope">
-          <h3>What this result means</h3>
-          <p>
-            This result describes supported indicators found in the domain
-            name's characters and spelling. It is <strong>not</strong> a
-            determination that the link, website, sender, or destination is
-            safe or malicious.
-          </p>
-        </section>
-
-        <dl class="summary-grid">
-          <div>
-            <dt>Defanged submitted hostname</dt>
-            <dd><code>{{ report.defanged_input }}</code></dd>
-          </div>
-          <div>
-            <dt>Defanged Unicode form</dt>
-            <dd><code>{{ report.defanged_unicode }}</code></dd>
-          </div>
-          <div>
-            <dt>Defanged ASCII/Punycode form</dt>
-            <dd><code>{{ report.defanged_ascii }}</code></dd>
-          </div>
-          <div>
-            <dt>Scripts detected</dt>
-            <dd>
-              {{ report.scripts|join(', ') if report.scripts else 'None' }}
-            </dd>
-          </div>
-          <div>
-            <dt>Domain indicator score</dt>
-            <dd>{{ report.risk_score }}/100</dd>
-          </div>
-          <div>
-            <dt>Domain-name assessment</dt>
-            <dd class="verdict verdict-{{ report.verdict|replace(' ', '-') }}">
-              {{ report.display_verdict }}
-            </dd>
-          </div>
-          <div class="summary-wide">
-            <dt>Legitimate-domain comparison</dt>
-            <dd>
-              {% if report.comparison_domain %}
-                Compared with
-                <code>{{ report.defanged_comparison }}</code>
-              {% else %}
-                Not provided—brand-impersonation and spelling comparison
-                was not performed
-              {% endif %}
-            </dd>
-          </div>
-        </dl>
-    
-        <p class="defang-explainer">
-          Displayed domains are defanged by replacing periods with
-          <code>[.]</code>. The checker treats submitted values as text and
-          does not resolve, visit, download from, or otherwise connect to the
-          destination.
-        </p>
-        <p class="score-explainer">
-          The domain indicator score measures only the supported character,
-          writing-system, Punycode, and comparison checks shown on this page.
-          It is not a general phishing, malware, reputation, or website-safety
-          score.
-        </p>
-
-      <h3>Detected Indicators</h3>
-
-        {% if report.findings %}
-          <ul class="findings">
-          {% for finding in report.findings %}
-            <li class="finding finding-{{ finding.severity }}">
-              <strong>{{ finding.reason }}</strong>
-              <span>{{ finding.detail }}</span>
-            </li>
-          {% endfor %}
-          </ul>
-        {% else %}
-          {% if report.comparison_domain %}
-            <p>
-              No indicators supported by the implemented domain-name checks
-              were detected using the information and comparison domain
-              provided. This does not establish that the link or website is
-              safe.
-            </p>
+        <section class="answer-card concern-{{ report.concern|lower }}">
+          <p class="eyebrow">What we found</p>
+          <h2>{{ report.concern }} impersonation concern</h2>
+          <p>Submitted domain: <code>{{ report.defanged_input }}</code></p>
+          {% if report.concern == 'High' and report.comparison_domain %}
+            <p><strong>This domain closely resembles the expected website,
+              <code>{{ report.defanged_comparison }}</code>.</strong></p>
+          {% elif report.findings %}
+            <p>We found character or spelling warning signs worth checking.</p>
           {% else %}
-            <section class="comparison-warning">
-              <strong>
-                No supported standalone domain-name indicators were detected.
-              </strong>
-              <p>
-                No legitimate comparison domain was provided, so the checker
-                did not evaluate whether this hostname is a misspelling or
-                ASCII look-alike of a specific trusted domain. Enter the
-                expected legitimate domain and analyze again for a stronger
-                comparison.
-              </p>
-            </section>
+            <p><strong>No look-alike warning signs were found by the domain-name checks.</strong></p>
           {% endif %}
-        {% endif %}
-         <div class="coverage-grid">
-          <section>
-            <h3>What was checked</h3>
-            <ul>
-              <li>Unicode and IDN characters</li>
-              <li>Punycode representation</li>
-              <li>Mixed writing systems</li>
-              <li>Supported visual character substitutions</li>
-              <li>
-                Supported spelling patterns when a comparison domain was
-                provided
-              </li>
-            </ul>
-          </section>
-
-          <section>
-            <h3>What was not checked</h3>
-            <ul>
-              <li>Website content or redirects</li>
-              <li>DNS, registration, hosting, or certificates</li>
-              <li>Threat intelligence or reputation services</li>
-              <li>Malware, downloads, or network behavior</li>
-              <li>Whether the sender or destination is trustworthy</li>
-            </ul>
-          </section>
-        </div>
-        {% if report.character_details %}
-          <h3>Character Details</h3>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>Position</th><th>Character</th><th>Code point</th><th>Unicode name</th><th>Script</th><th>Resembles</th></tr>
-              </thead>
-              <tbody>
-              {% for item in report.character_details %}
-                <tr>
-                  <td>{{ item.index }}</td>
-                  <td class="character">{{ item.character }}</td>
-                  <td>{{ item.code_point }}</td>
-                  <td>{{ item.unicode_name }}</td>
-                  <td>{{ item.script }}</td>
-                  <td>{{ item.looks_like or '—' }}</td>
-                </tr>
-              {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% endif %}
-
-        <section class="limitation">
-          <h3>Important limitation</h3>
-          <p>
-            The domain-name analysis does not inspect registration, DNS, hosting,
-            certificates, redirects, or webpage content. When a named
-            threat-intelligence feed is available, its results appear separately and
-            represent only what that source reported. The checker does not visit or
-            connect to the submitted destination, and the absence of a feed match
-            does not establish that a domain or URL is safe.
-          </p>
+          {% if not report.comparison_domain %}
+            <p>No expected website was supplied. Add its known domain to check for look-alike spelling.</p>
+          {% endif %}
         </section>
+
+        {% if report.plain_findings %}
+        <h3>Why it was flagged</h3>
+        <ul>{% for reason in report.plain_findings %}<li>{{ reason }}</li>{% endfor %}</ul>
+        {% for character in report.character_explanations %}
+        <p>Character {{ character.position }} is <code>{{ character.actual }}</code>.
+          The expected domain uses <code>{{ character.expected }}</code> in that position.</p>
+        {% endfor %}
+        {% endif %}
+
+        <section class="next-steps">
+          <h3>What you should do</h3>
+          <p><strong>{% if report.findings %}Do not use the submitted link to sign in, make a payment, or provide personal information.
+            {% else %}Verify the destination independently before using the link.{% endif %}</strong></p>
+          <ul>
+            <li>Open the organization's official app or type its known website address yourself.</li>
+            <li>If you entered a password, change it through the official service.</li>
+            <li>If you supplied payment information or sent money, contact your financial institution using a verified number.</li>
+            <li>Keep the original message, screenshots, and sender information.</li>
+          </ul>
+        </section>
+        <p class="scope-note">This assessment concerns the domain name only. It does not establish that the website is safe or malicious, or identify who operates it.</p>
+
+        <div class="coverage-grid">
+          <section><h3>What was checked</h3><ul>
+            <li>Look-alike characters and writing systems</li>
+            <li>International domain-name encoding</li>
+            <li>Supported spelling patterns{% if report.comparison_domain %} compared with <code>{{ report.defanged_comparison }}</code>{% else %}: no comparison domain provided{% endif %}</li>
+            {% if whoisxml_enabled %}<li>WhoisXML hostname threat records, reported separately below</li>{% endif %}
+          </ul></section>
+          <section><h3>What was not checked</h3><ul>
+            <li>Website content, redirects, or downloads</li>
+            <li>DNS, registration, hosting, or certificates</li>
+            <li>Whether the sender is trustworthy</li>
+            <li>The full URL's threat history</li>
+          </ul></section>
+        </div>
        {% if intelligence_findings %}
         <section
           class="intelligence-results"
@@ -285,9 +185,11 @@
                 class="intelligence-finding intelligence-{{ finding.status }}"
               >
                 <h3>
-                  {{ finding.status|replace('_', ' ')|title }}
+                  {{ {'listed': 'Threat record found', 'not_found': 'No matching threat records found', 'unavailable': 'Threat lookup unavailable', 'user_reported': 'User-reported concern'}.get(finding.status, finding.status) }}
                 </h3>
 
+                <p>{{ finding.detail }}</p>
+                <details><summary>Source details and lookup time</summary>
                 <dl class="intelligence-grid">
                   <div>
                     <dt>Source</dt>
@@ -333,7 +235,7 @@
                   </div>
                 </dl>
 
-                <p>{{ finding.detail }}</p>
+                </details>
 
                 {% if finding.status == 'not_found' %}
                   <p class="intelligence-caution">
@@ -351,6 +253,26 @@
             {% endfor %}
           </section>
         {% endif %}
+        <details class="technical-details">
+          <summary>Technical details</summary>
+          <p>Displayed domains use <code>[.]</code> instead of periods so they are not clickable.</p>
+          <dl class="summary-grid">
+            <div><dt>Submitted domain, displayed safely</dt><dd><code>{{ report.defanged_input }}</code></dd></div>
+            {% if report.defanged_unicode != report.defanged_input %}
+            <div><dt>Unicode form</dt><dd><code>{{ report.defanged_unicode }}</code></dd></div>{% endif %}
+            {% if report.defanged_ascii != report.defanged_unicode %}
+            <div><dt>ASCII/Punycode form</dt><dd><code>{{ report.defanged_ascii }}</code></dd></div>{% endif %}
+            <div><dt>Writing systems used</dt><dd>{{ report.scripts|join(', ') or 'None' }}</dd></div>
+            <div><dt>Domain-name indicator score</dt><dd>{{ report.risk_score }}/100</dd></div>
+          </dl>
+          <p>This score summarizes the implemented domain-name checks. It is not a percentage probability of phishing or malicious activity.</p>
+          {% for finding in report.findings %}<p><strong>{{ finding.reason }}</strong>: {{ finding.detail }}</p>{% endfor %}
+          {% if report.character_details %}
+          <h3>Character evidence</h3><div class="table-wrap"><table>
+            <thead><tr><th>Character position</th><th>Character</th><th>Code point</th><th>Unicode name</th><th>Writing system</th><th>Resembles</th></tr></thead>
+            <tbody>{% for item in report.character_details %}<tr><td>{{ item.index + 1 }}</td><td>{{ item.character }}</td><td>{{ item.code_point }}</td><td>{{ item.unicode_name }}</td><td>{{ item.script }}</td><td>{{ item.looks_like or '—' }}</td></tr>{% endfor %}</tbody>
+          </table></div>{% endif %}
+        </details>
       </section>
     {% endif %}
 

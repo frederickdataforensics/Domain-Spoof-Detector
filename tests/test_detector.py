@@ -80,13 +80,13 @@ class DetectorTests(unittest.TestCase):
         body = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Domain indicator score", body)
+        self.assertIn("Domain-name indicator score", body)
         self.assertIn(
-            "brand-impersonation and spelling comparison",
+            "No expected website was supplied",
             body,
         )
         self.assertIn(
-            "not a general phishing, malware, reputation",
+            "not a percentage probability of phishing",
             body,
         )
 
@@ -108,7 +108,7 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("paypal[.]com", body)
         self.assertIn(
-            "Supported domain-name indicators detected",
+            "We found character or spelling warning signs",
             body,
         )
 
@@ -161,7 +161,7 @@ class DetectorTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("example[.]com", body)
-        self.assertIn("Defanged submitted hostname", body)
+        self.assertIn("Submitted domain, displayed safely", body)
         self.assertNotIn("user:password", body)
         self.assertNotIn("/private/document", body)
         self.assertNotIn("token=secret-value", body)
@@ -237,7 +237,7 @@ class DetectorTests(unittest.TestCase):
         body = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Not Found", body)
+        self.assertIn("No matching threat records found", body)
         self.assertIn(
             "It does not mean the domain or URL is",
             body,
