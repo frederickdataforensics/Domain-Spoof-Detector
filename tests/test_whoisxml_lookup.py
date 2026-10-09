@@ -100,7 +100,7 @@ class WhoisXMLTests(unittest.TestCase):
             app = create_app()
         body = app.test_client().post('/analyze', data={
             'value': 'paypa1.com', 'trusted': 'paypal.com', 'acknowledged': 'yes'}).get_data(as_text=True)
-        self.assertIn('High impersonation concern', body)
+        self.assertIn('Warning: this domain has look-alike signs', body)
         self.assertIn('Character 6 is <code>1</code>', body)
         self.assertLess(body.index('What we found'), body.index('What you should do'))
         self.assertLess(body.index('What you should do'), body.index('Technical details'))

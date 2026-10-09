@@ -108,7 +108,7 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("paypal[.]com", body)
         self.assertIn(
-            "We found character or spelling warning signs",
+            "Character or spelling warning signs were found",
             body,
         )
 

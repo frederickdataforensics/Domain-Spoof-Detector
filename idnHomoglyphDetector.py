@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 from pathlib import Path
 import argparse
 import ipaddress
+from domain_structure import misleading_subdomain
 import json
 import unicodedata
 from dataclasses import asdict, dataclass
@@ -357,6 +358,16 @@ def analyze(value: str, trusted_domains: list[str] | None = None) -> Report:
 
     for trusted in trusted_domains or []:
         trusted_unicode = normalize_trusted_domain(trusted)
+        misleading_domain = misleading_subdomain(
+            encoded, ascii_hostname(trusted_unicode)
+        )
+        if misleading_domain:
+            findings.append(Finding(
+                "critical", "Misleading trusted name in subdomain",
+                f"The expected name appears before the actual site domain {misleading_domain!r}; this is not a subdomain of {trusted_unicode!r}."
+            ))
+            score += 70
+
         if decoded != trusted_unicode and skeleton == make_skeleton(trusted_unicode):
             findings.append(Finding(
                 "critical", "Trusted-domain impersonation",

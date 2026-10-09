@@ -17,3 +17,14 @@ Unicode Technical Standard #39: https://www.unicode.org/reports/tr39/
 Unicode terms of use: https://www.unicode.org/terms_of_use.html
 
 The Unicode dataset retains its original copyright and licensing terms. The MIT License in this repository applies to the project’s original Python source code and does not replace the license applicable to the Unicode data.
+
+Domain-boundary parsing
+
+This application depends on tldextract 5.3.0 (BSD-3-Clause), which includes a
+bundled Public Suffix List snapshot. Runtime suffix fetching and disk caching
+are disabled. Both ICANN and private suffix rules are used. Reserved .test
+is explicitly supported for safe development examples. This is name parsing,
+not DNS, registration, ownership, or network verification.
+
+https://github.com/john-kurkowski/tldextract
+https://publicsuffix.org/
