@@ -110,23 +110,41 @@
 
     {% if report %}
       <section class="results" aria-live="polite">
-        <section class="answer-card concern-{{ report.concern|lower }}">
+        <section class="answer-card concern-{{ report.summary.level }}">
           <p class="eyebrow">What we found</p>
-          <h2>{{ report.concern }} impersonation concern</h2>
-          <p>Submitted domain: <code>{{ report.defanged_input }}</code></p>
-          {% if report.concern == 'High' and report.comparison_domain %}
-            <p><strong>This domain closely resembles the expected website,
-              <code>{{ report.defanged_comparison }}</code>.</strong></p>
-          {% elif report.findings %}
-            <p>We found character or spelling warning signs worth checking.</p>
-          {% else %}
-            <p><strong>No look-alike warning signs were found by the domain-name checks.</strong></p>
-          {% endif %}
-          {% if not report.comparison_domain %}
-            <p>No expected website was supplied. Add its known domain to check for look-alike spelling.</p>
+          <h2>{{ report.summary.title }}</h2>
+          <p>Address checked: <code>{{ report.defanged_input }}</code></p>
+          <p>{{ report.summary.message }}</p>
+          {% if report.misleading_subdomain %}
+          <p><strong>This address is under <code>{{ report.site_domain }}</code>,
+            not <code>{{ report.defanged_comparison }}</code>.</strong>
+            Putting the expected website's name at the beginning does not make this its website.</p>
           {% endif %}
         </section>
 
+        <section class="next-steps">
+          <h3>What you should do</h3>
+          <p><strong>{% if report.summary.avoid_link %}Do not use this link. Open the organization's official app or type its known website address yourself.
+            {% else %}Check with the organization before using this link. Use its official app, a website address you already know, or a phone number from your statement or card.{% endif %}</strong></p>
+          <details><summary>Already clicked or shared information?</summary>
+            <ul>
+              <li>If you only clicked, close the page. Do not download anything or enter information. Clicking alone does not prove your device was compromised.</li>
+              <li>If you entered a password, change it through the official app or known website. Change it on other accounts where you used the same password.</li>
+              <li>If you shared card details or sent money, call your bank using the number on your card or statement.</li>
+              <li>If you downloaded or installed something, ask a trusted IT professional for help.</li>
+              <li>Keep the original message and a screenshot.</li>
+            </ul>
+          </details>
+        </section>
+
+        <h3>What supports this result</h3>
+        <p><strong>Domain-name check:</strong>
+          {% if report.plain_findings %}Character or spelling warning signs were found.
+          {% else %}No look-alike signs were detected by the current spelling checks.
+            {% if report.threat_listed %}<strong>This does not cancel the threat-record warning above.</strong>{% endif %}
+          {% endif %}
+        </p>
+        {% if not report.comparison_domain %}<p>No expected website was supplied. Add its known domain to check for look-alike spelling.</p>{% endif %}
         {% if report.plain_findings %}
         <h3>Why it was flagged</h3>
         <ul>{% for reason in report.plain_findings %}<li>{{ reason }}</li>{% endfor %}</ul>
@@ -136,22 +154,12 @@
         {% endfor %}
         {% endif %}
 
-        <section class="next-steps">
-          <h3>What you should do</h3>
-          <p><strong>{% if report.findings %}Do not use the submitted link to sign in, make a payment, or provide personal information.
-            {% else %}Verify the destination independently before using the link.{% endif %}</strong></p>
-          <ul>
-            <li>Open the organization's official app or type its known website address yourself.</li>
-            <li>If you entered a password, change it through the official service.</li>
-            <li>If you supplied payment information or sent money, contact your financial institution using a verified number.</li>
-            <li>Keep the original message, screenshots, and sender information.</li>
-          </ul>
-        </section>
-        <p class="scope-note">This assessment concerns the domain name only. It does not establish that the website is safe or malicious, or identify who operates it.</p>
+        <p class="scope-note">The checker does not visit the address or identify who operates it. Threat records report what a named source has observed; domain-name checks examine spelling and characters.</p>
 
         <div class="coverage-grid">
           <section><h3>What was checked</h3><ul>
             <li>Look-alike characters and writing systems</li>
+            <li>Expected website names placed in subdomains of a different site</li>
             <li>International domain-name encoding</li>
             <li>Supported spelling patterns{% if report.comparison_domain %} compared with <code>{{ report.defanged_comparison }}</code>{% else %}: no comparison domain provided{% endif %}</li>
             {% if whoisxml_enabled %}<li>WhoisXML hostname threat records, reported separately below</li>{% endif %}
@@ -262,6 +270,7 @@
             <div><dt>Unicode form</dt><dd><code>{{ report.defanged_unicode }}</code></dd></div>{% endif %}
             {% if report.defanged_ascii != report.defanged_unicode %}
             <div><dt>ASCII/Punycode form</dt><dd><code>{{ report.defanged_ascii }}</code></dd></div>{% endif %}
+            <div><dt>Site domain boundary</dt><dd>{{ report.site_domain or 'Not determined from the bundled suffix list' }}</dd></div>
             <div><dt>Writing systems used</dt><dd>{{ report.scripts|join(', ') or 'None' }}</dd></div>
             <div><dt>Domain-name indicator score</dt><dd>{{ report.risk_score }}/100</dd></div>
           </dl>
