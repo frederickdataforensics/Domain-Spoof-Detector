@@ -22,13 +22,15 @@ body {
 .shell { width: min(920px, calc(100% - 32px)); margin: 0 auto; padding: 42px 0; }
 .eyebrow { margin: 0 0 4px; color: var(--brand-dark); font-weight: 700; letter-spacing: .04em; }
 .brand-logo {
-  display: inline-block;
+  display: block;
+  width: 100%;
   margin-bottom: 16px;
 }
 
 .brand-logo img {
   display: block;
-  width: min(320px, 100%);
+  width: 100%;
+  max-width: 100%;
   height: auto;
 }
 h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.12; }
