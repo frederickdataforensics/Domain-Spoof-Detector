@@ -216,8 +216,8 @@ class DetectorTests(unittest.TestCase):
         self.assertIn("Development test data", body)
         self.assertIn("FDF Fabricated Test Feed", body)
         self.assertIn("Phishing", body)
-        self.assertIn("Exact Url", body)
-        self.assertIn("Verified", body)
+        self.assertIn("The full link matched a record", body)
+        self.assertIn("The source marks this record verified", body)
         self.assertIn("test-phish-1001", body)
 
     def test_no_match_intelligence_result_does_not_claim_safety(self):

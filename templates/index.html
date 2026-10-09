@@ -197,53 +197,39 @@
                 </h3>
 
                 <p>{{ finding.detail }}</p>
-                <details><summary>Source details and lookup time</summary>
                 <dl class="intelligence-grid">
-                  <div>
-                    <dt>Source</dt>
-                    <dd>{{ finding.source }}</dd>
-                  </div>
-
-                  <div>
-                    <dt>Classification</dt>
-                    <dd>
-                      {{ finding.classification|replace('_', ' ')|title }}
-                    </dd>
-                  </div>
-
-                  <div>
-                    <dt>Match type</dt>
-                    <dd>
-                      {{ finding.match_type|replace('_', ' ')|title }}
-                    </dd>
-                  </div>
-
-                  <div>
-                    <dt>Source verification</dt>
-                    <dd>
-                      {{ 'Verified' if finding.verified else 'Not verified' }}
-                    </dd>
-                  </div>
-
-                  <div>
-                    <dt>Source timestamp</dt>
-                    <dd>
-                      {{ finding.source_timestamp or 'Not provided' }}
-                    </dd>
-                  </div>
-
-                  <div>
-                    <dt>Lookup timestamp</dt>
-                    <dd>{{ finding.lookup_timestamp }}</dd>
-                  </div>
-
-                  <div class="intelligence-wide">
-                    <dt>Reference</dt>
-                    <dd>{{ finding.reference or 'Not provided' }}</dd>
-                  </div>
+                  <div><dt>Information provider</dt><dd>{{ finding.source }}</dd></div>
+                  {% if finding.status == 'listed' %}
+                  <div><dt>Reported activity</dt><dd>
+                    {% if finding.source == 'WhoisXML API' %}{{ finding.classification|threat_category }}
+                    {% else %}{{ finding.classification|replace('_', ' ')|title }}{% endif %}
+                  </dd></div>
+                  {% endif %}
+                  <div><dt>What was compared</dt><dd>
+                    {% if finding.match_type == 'exact_url' %}The full link matched a record
+                    {% elif finding.match_type == 'hostname' %}The hostname matched a record; the full link was not checked
+                    {% else %}No matching record was returned or the lookup could not be completed{% endif %}
+                  </dd></div>
+                  <div><dt>Result checked</dt><dd>{{ finding.lookup_timestamp|eastern_time }}</dd></div>
+                  {% if finding.source_timestamp and finding.status == 'listed' %}
+                  <div><dt>{{ 'Most recent observation reported by provider' if finding.source == 'WhoisXML API' else 'Record date reported by provider' }}</dt>
+                    <dd>{{ finding.source_timestamp|eastern_time }}</dd></div>
+                  {% endif %}
+                  {% if finding.source != 'WhoisXML API' and finding.verified %}
+                  <div><dt>Provider confirmation</dt><dd>The source marks this record verified</dd></div>
+                  {% endif %}
+                  {% if finding.reference %}
+                  <div class="intelligence-wide"><dt>Provider record reference</dt><dd>{{ finding.reference }}</dd></div>
+                  {% endif %}
                 </dl>
-
-                </details>
+                {% if finding.source == 'WhoisXML API' %}
+                  {% if finding.status == 'listed' %}
+                  <p>This is a record returned by WhoisXML API. FDF has not independently investigated the website.
+                    A past observation does not establish what the site is doing now.</p>
+                  {% if not finding.source_timestamp %}<p>The provider did not supply an observation date for this matching record.</p>{% endif %}
+                  {% endif %}
+                {% endif %}
+                <p class="help">Times are shown in US Eastern Time, with the daylight-saving label and UTC offset. Reused results keep the time of the original check.</p>
 
                 {% if finding.status == 'not_found' %}
                   <p class="intelligence-caution">
