@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 from dataclasses import asdict
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from flask import Flask, render_template, request
 from local_threat_lookup import lookup_local_feed
@@ -41,6 +43,36 @@ def create_app() -> Flask:
         "FDF_ENABLE_WHOISXML", ""
     ).casefold() in {"1", "true", "yes"}
     whoisxml_client = WhoisXMLClient(os.environ.get("WHOISXML_API_KEY", ""))
+
+    @app.template_filter("eastern_time")
+    def eastern_time(value):
+        if not isinstance(value, str):
+            return "Date unavailable"
+        try:
+            timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if timestamp.tzinfo is None:
+                return "Date unavailable"
+            local = timestamp.astimezone(ZoneInfo("America/New_York"))
+            offset = local.strftime("%z")
+            offset = offset[:3] + ":" + offset[3:]
+            return local.strftime("%b %d, %Y at %I:%M %p") + " US Eastern Time (" + local.tzname() + ", UTC" + offset + ")"
+        except (ValueError, OverflowError):
+            return "Date unavailable"
+
+    @app.template_filter("threat_category")
+    def threat_category(value):
+        labels = {
+            "phishing": "Phishing (fake messages or websites used to steal information)",
+            "malware": "Malware (harmful software)",
+            "botnet": "Botnet activity (networks of compromised devices)",
+            "c&c": "Malware control infrastructure",
+            "attack": "Attack activity",
+            "spam": "Spam (unwanted messages)",
+            "suspicious": "Suspicious activity",
+            "tor": "Tor network association (not proof of malicious activity)",
+            "generic": "General threat record (no specific activity stated)",
+        }
+        return "; ".join(labels.get(v.strip(), "Threat category not supplied") for v in value.split(","))
 
     @app.context_processor
     def intelligence_configuration():

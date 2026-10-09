@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 import re
 import threading
 import time
@@ -46,9 +47,25 @@ def parse_response(payload, hostname):
                and r["value"].lower().rstrip(".") == hostname]
     if total < len(records) or not matches:
         raise ValueError("Unexpected matches")
+    known_types = {"attack", "botnet", "c&c", "malware", "phishing", "spam", "suspicious", "tor", "generic"}
+    categories = sorted({
+        r["threatType"].lower() for r in matches
+        if isinstance(r.get("threatType"), str) and r["threatType"].lower() in known_types
+    })
+    observed = []
+    for record in matches:
+        value = record.get("lastSeen")
+        if isinstance(value, str):
+            try:
+                timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                if timestamp.tzinfo is not None:
+                    observed.append(timestamp)
+            except ValueError:
+                pass
+    latest = max(observed).isoformat() if observed else None
     return ThreatIntelligenceFinding(
-        source="WhoisXML API", status="listed", classification="source_reported",
-        match_type="hostname", verified=False,
+        source="WhoisXML API", status="listed", classification=", ".join(categories) or "unspecified",
+        match_type="hostname", verified=False, source_timestamp=latest,
         detail="WhoisXML API returned a threat-intelligence record for this hostname. This is a source-reported association, not an independent FDF determination of malicious activity. The full URL was not checked.",
     )
 
