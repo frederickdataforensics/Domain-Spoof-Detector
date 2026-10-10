@@ -24,14 +24,15 @@ body {
 .brand-logo {
   display: block;
   width: 100%;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .brand-logo img {
   display: block;
   width: 100%;
   max-width: 100%;
-  height: auto;
+  height: clamp(120px, 24vw, 200px);
+  object-fit: contain;
 }
 h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.12; }
 .lede { max-width: 700px; color: var(--muted); font-size: 1.1rem; }
