@@ -5,12 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Suspicious Domain Checker | Frederick Data Forensics</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  {% if analytics_enabled %}
+  <script defer src="{{ url_for('static', filename='analytics.js') }}"></script>
+  {% endif %}
 </head>
-<body>
+<body data-check-status="{{ 'failed' if error else 'completed' if report else 'none' }}">
   <main class="shell">
     <header>
             <a
         class="brand-logo"
+        data-fdf-link="logo"
         href="https://www.frederickdataforensics.net/"
         aria-label="Frederick Data Forensics home"
       >
@@ -274,6 +278,13 @@
     <footer>
       <p>Unicode confusables data: {{ confusables_version }}</p>
       <p>For educational and preliminary triage use. Analyst review may be appropriate.</p>
+      <p><a href="https://www.frederickdataforensics.net/" data-fdf-link="footer">Visit Frederick Data Forensics</a>
+        | <a href="https://www.frederickdataforensics.net/privacy-storage-and-data-integrity">Privacy, Storage and Data Integrity</a></p>
+      {% if analytics_enabled %}
+      <p class="help">Google Analytics measures visits and checker actions. Our analytics code does not send submitted domains, links, comparison domains or result details. Google may process device, connection and cookie information.</p>
+      <label class="help"><input type="checkbox" id="usage-analytics" checked> Allow usage analytics on this browser</label>
+      <p id="analytics-preference" class="help" role="status">Without JavaScript, usage analytics is not loaded.</p>
+      {% endif %}
     </footer>
   </main>
 </body>
