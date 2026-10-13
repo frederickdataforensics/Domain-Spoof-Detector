@@ -32,6 +32,9 @@ MAX_TRUSTED_LENGTH = 253
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
+    app.config["ANALYTICS_ENABLED"] = os.environ.get(
+        "FDF_ENABLE_ANALYTICS", "true"
+    ).casefold() in {"1", "true", "yes"}
     app.config["FABRICATED_THREAT_LOOKUP_ENABLED"] = (
       os.environ.get(
         "FDF_ENABLE_FABRICATED_THREAT_FEED",
@@ -76,7 +79,10 @@ def create_app() -> Flask:
 
     @app.context_processor
     def intelligence_configuration():
-        return {"whoisxml_enabled": app.config["WHOISXML_ENABLED"]}
+        return {
+            "whoisxml_enabled": app.config["WHOISXML_ENABLED"],
+            "analytics_enabled": app.config["ANALYTICS_ENABLED"],
+        }
 
     phishtank_feed_path = os.environ.get(
       "FDF_PHISHTANK_FEED_PATH",
@@ -112,6 +118,9 @@ def create_app() -> Flask:
     def security_headers(response):
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
+            "script-src 'self' https://www.googletagmanager.com; "
+            "connect-src 'self' https://*.google-analytics.com "
+            "https://www.googletagmanager.com; "
             "style-src 'self'; "
             "img-src 'self' data:; "
             "form-action 'self'; "
