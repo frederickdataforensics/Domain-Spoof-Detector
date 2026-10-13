@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suspicious Domain Checker | Frederick Data Forensics</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  {% if analytics_enabled %}
+  <script defer src="{{ url_for('static', filename='analytics.js') }}"></script>
+  {% endif %}
+</head>
+<body data-check-status="{{ 'failed' if error else 'completed' if report else 'none' }}">
+  <main class="shell">
+    <header>
+            <a
+        class="brand-logo"
+        data-fdf-link="logo"
+        href="https://www.frederickdataforensics.net/"
+        aria-label="Frederick Data Forensics home"
+      >
+        <img
+          src="{{ url_for(
+            'static',
+            filename='fdf-binary-monogram.png'
+          ) }}"
+          alt="Frederick Data Forensics"
+          width="1774"
+          height="887"
+        >
+      </a>
+      <h1>Suspicious Domain Checker</h1>
+      <p class="lede">
+        Analyze suspicious domain names for look-alike characters, deceptive spelling, and other impersonation indicators. 
+        {% if whoisxml_enabled %}
+        A separate WhoisXML API check looks for threat records matching the hostname.
+        {% else %}
+        WhoisXML threat-intelligence lookup is not enabled.
+        {% endif %}
+      </p>
+    </header>
+
+    <section class="notice" aria-label="Safety notice">
+      <strong>Text-only analysis:</strong> This checker does not visit,
+      resolve, download from, or otherwise connect to the submitted domain.
+      Do not enter passwords, authentication codes, private document links,
+      password-reset links, or URLs containing personal access tokens.
+    </section>
+
+    {% if whoisxml_enabled %}
+    <p class="notice">The hostname is sent to WhoisXML API for a threat-intelligence lookup.
+      URL paths, query strings, and fragments are not sent. The full link is not checked.</p>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('analyze_submission') }}" class="checker-form">
+      <label for="value">
+        Suspicious domain or link
+        <span>(paste exactly as received)</span>
+      </label>
+      <input
+        id="value"
+        name="value"
+        type="text"
+        maxlength="2048"
+        required
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="Example: раypal.com or https://example.com/login"
+        value="{{ submitted_value }}"
+      >
+      <p class="help">
+        Paste the suspicious domain or link exactly as you received it.
+        Do not open it, correct its spelling, shorten it, or manually defang
+        it first. The checker treats the submission as text and does not
+        connect to the destination. Only a sanitized, defanged hostname is
+        returned for display.
+      </p>
+
+      <label for="trusted">Expected legitimate domain <span>(strongly recommended)</span></label>
+      <input
+        id="trusted"
+        name="trusted"
+        type="text"
+        maxlength="253"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="Example: paypal.com"
+        value="{{ trusted_value }}"
+      >
+      <p class="help">
+        Enter the domain you believe the submitted address may be imitating—for example, paypal.com. This enables additional look-alike and misspelling checks and may substantially change the result.</p>
+
+       <label class="acknowledgment">
+        <input name="acknowledged" type="checkbox" value="yes" required>
+        <span>
+          I understand that I should paste the suspicious link without
+          opening it. This tool performs preliminary text analysis without
+          visiting the destination and does not determine whether a website
+          is safe or malicious.
+        </span>
+      </label>
+
+      <div class="actions">
+        <button type="submit">Analyze Domain</button>
+        <a class="secondary" href="{{ url_for('index') }}">Clear Results</a>
+      </div>
+    </form>
+
+    {% if error %}
+      <section class="error" role="alert">
+        <h2>Unable to analyze</h2>
+        <p>{{ error }}</p>
+      </section>
+    {% endif %}
+
+    {% if report %}
+      <section class="results" aria-live="polite">
+        <section class="answer-card concern-{{ report.summary.level }}">
+          <p class="eyebrow">What we found</p>
+          <h2>{{ report.summary.title }}</h2>
+          <p>Address checked: <code>{{ report.defanged_input }}</code></p>
+          <p>{{ report.summary.message }}</p>
+          {% if report.misleading_subdomain %}
+          <p><strong>This address is under <code>{{ report.site_domain }}</code>,
+            not <code>{{ report.defanged_comparison }}</code>.</strong>
+            Putting the expected website's name at the beginning does not make this its website.</p>
+          {% endif %}
+        </section>
+
+        <section class="next-steps">
+          <h3>What you should do</h3>
+          <p><strong>{% if report.summary.avoid_link %}Do not use this link. Open the organization's official app or type its known website address yourself.
+            {% else %}Check with the organization before using this link. Use its official app, a website address you already know, or a phone number from your statement or card.{% endif %}</strong></p>
+          <details><summary>Already clicked or shared information?</summary>
+            <ul>
+              <li>If you only clicked, close the page. Do not download anything or enter information. Clicking alone does not prove your device was compromised.</li>
+              <li>If you entered a password, change it through the official app or known website. Change it on other accounts where you used the same password.</li>
+              <li>If you shared card details or sent money, call your bank using the number on your card or statement.</li>
+              <li>If you downloaded or installed something, ask a trusted IT professional for help.</li>
+              <li>Keep the original message and a screenshot.</li>
+            </ul>
+          </details>
+        </section>
+
+        <h3>What supports this result</h3>
+        <p><strong>Domain-name check:</strong>
+          {% if report.plain_findings %}Character or spelling warning signs were found.
+          {% else %}No look-alike signs were detected by the current spelling checks.
+            {% if report.threat_listed %}<strong>This does not cancel the threat-record warning above.</strong>{% endif %}
+          {% endif %}
+        </p>
+        {% if not report.comparison_domain %}<p>No expected website was supplied. Add its known domain to check for look-alike spelling.</p>{% endif %}
+        {% if report.plain_findings %}
+        <h3>Why it was flagged</h3>
+        <ul>{% for reason in report.plain_findings %}<li>{{ reason }}</li>{% endfor %}</ul>
+        {% for character in report.character_explanations %}
+        <p>Character {{ character.position }} is <code>{{ character.actual }}</code>.
+          The expected domain uses <code>{{ character.expected }}</code> in that position.</p>
+        {% endfor %}
+        {% endif %}
+
+        <p class="scope-note">The checker does not visit the address or identify who operates it. Threat records report what a named source has observed; domain-name checks examine spelling and characters.</p>
+
+        <div class="coverage-grid">
+          <section><h3>What was checked</h3><ul>
+            <li>Look-alike characters and writing systems</li>
+            <li>Expected website names placed in subdomains of a different site</li>
+            <li>International domain-name encoding</li>
+            <li>Supported spelling patterns{% if report.comparison_domain %} compared with <code>{{ report.defanged_comparison }}</code>{% else %}: no comparison domain provided{% endif %}</li>
+            {% if whoisxml_enabled %}<li>WhoisXML hostname threat records, reported separately below</li>{% endif %}
+          </ul></section>
+          <section><h3>What was not checked</h3><ul>
+            <li>Website content, redirects, or downloads</li>
+            <li>DNS, registration, hosting, or certificates</li>
+            <li>Whether the sender is trustworthy</li>
+            <li>The full URL's threat history</li>
+          </ul></section>
+        </div>
+       {% if intelligence_findings %}
+        <section
+          class="intelligence-results"
+          aria-label="Known-threat intelligence results"
+        >
+            <h2>Known-Threat Intelligence</h2>
+
+        {% if fabricated_feed_enabled %}
+          <div class="test-data-notice">
+              <strong>Development test data:</strong>
+              These results use a fabricated local dataset containing
+              reserved <code>.test</code> domains. They are included only
+              to validate the lookup workflow and are not real
+              threat-intelligence findings.
+          </div>
+         {% endif %}
+
+            {% for finding in intelligence_findings %}
+              <article
+                class="intelligence-finding intelligence-{{ finding.status }}"
+              >
+                <h3>
+                  {{ {'listed': 'Threat record found', 'not_found': 'No matching threat records found', 'unavailable': 'Threat lookup unavailable', 'user_reported': 'User-reported concern'}.get(finding.status, finding.status) }}
+                </h3>
+
+                <p>{{ finding.detail }}</p>
+                <dl class="intelligence-grid">
+                  <div><dt>Information provider</dt><dd>{{ finding.source }}</dd></div>
+                  {% if finding.status == 'listed' %}
+                  <div><dt>Reported activity</dt><dd>
+                    {% if finding.source == 'WhoisXML API' %}{{ finding.classification|threat_category }}
+                    {% else %}{{ finding.classification|replace('_', ' ')|title }}{% endif %}
+                  </dd></div>
+                  {% endif %}
+                  <div><dt>What was compared</dt><dd>
+                    {% if finding.match_type == 'exact_url' %}The full link matched a record
+                    {% elif finding.match_type == 'hostname' %}The hostname matched a record; the full link was not checked
+                    {% else %}No matching record was returned or the lookup could not be completed{% endif %}
+                  </dd></div>
+                  <div><dt>Result checked</dt><dd>{{ finding.lookup_timestamp|eastern_time }}</dd></div>
+                  {% if finding.source_timestamp and finding.status == 'listed' %}
+                  <div><dt>{{ 'Most recent observation reported by provider' if finding.source == 'WhoisXML API' else 'Record date reported by provider' }}</dt>
+                    <dd>{{ finding.source_timestamp|eastern_time }}</dd></div>
+                  {% endif %}
+                  {% if finding.source != 'WhoisXML API' and finding.verified %}
+                  <div><dt>Provider confirmation</dt><dd>The source marks this record verified</dd></div>
+                  {% endif %}
+                  {% if finding.reference %}
+                  <div class="intelligence-wide"><dt>Provider record reference</dt><dd>{{ finding.reference }}</dd></div>
+                  {% endif %}
+                </dl>
+                {% if finding.source == 'WhoisXML API' %}
+                  {% if finding.status == 'listed' %}
+                  <p>This is a record returned by WhoisXML API. FDF has not independently investigated the website.
+                    A past observation does not establish what the site is doing now.</p>
+                  {% if not finding.source_timestamp %}<p>The provider did not supply an observation date for this matching record.</p>{% endif %}
+                  {% endif %}
+                {% endif %}
+                <p class="help">Times are shown in US Eastern Time, with the daylight-saving label and UTC offset. Reused results keep the time of the original check.</p>
+
+                {% if finding.status == 'not_found' %}
+                  <p class="intelligence-caution">
+                    No match means only that this value was not located in
+                    the source checked. It does not mean the domain or URL is
+                    safe.
+                  </p>
+                {% elif finding.status == 'unavailable' %}
+                  <p class="intelligence-caution">
+                    The intelligence source was unavailable. Do not interpret
+                    this result as a clean or safe determination.
+                  </p>
+                {% endif %}
+              </article>
+            {% endfor %}
+          </section>
+        {% endif %}
+        <details class="technical-details">
+          <summary>Technical details</summary>
+          <p>Displayed domains use <code>[.]</code> instead of periods so they are not clickable.</p>
+          <dl class="summary-grid">
+            <div><dt>Submitted domain, displayed safely</dt><dd><code>{{ report.defanged_input }}</code></dd></div>
+            {% if report.defanged_unicode != report.defanged_input %}
+            <div><dt>Unicode form</dt><dd><code>{{ report.defanged_unicode }}</code></dd></div>{% endif %}
+            {% if report.defanged_ascii != report.defanged_unicode %}
+            <div><dt>ASCII/Punycode form</dt><dd><code>{{ report.defanged_ascii }}</code></dd></div>{% endif %}
+            <div><dt>Site domain boundary</dt><dd>{{ report.site_domain or 'Not determined from the bundled suffix list' }}</dd></div>
+            <div><dt>Writing systems used</dt><dd>{{ report.scripts|join(', ') or 'None' }}</dd></div>
+            <div><dt>Domain-name indicator score</dt><dd>{{ report.risk_score }}/100</dd></div>
+          </dl>
+          <p>This score summarizes the implemented domain-name checks. It is not a percentage probability of phishing or malicious activity.</p>
+          {% for finding in report.findings %}<p><strong>{{ finding.reason }}</strong>: {{ finding.detail }}</p>{% endfor %}
+          {% if report.character_details %}
+          <h3>Character evidence</h3><div class="table-wrap"><table>
+            <thead><tr><th>Character position</th><th>Character</th><th>Code point</th><th>Unicode name</th><th>Writing system</th><th>Resembles</th></tr></thead>
+            <tbody>{% for item in report.character_details %}<tr><td>{{ item.index + 1 }}</td><td>{{ item.character }}</td><td>{{ item.code_point }}</td><td>{{ item.unicode_name }}</td><td>{{ item.script }}</td><td>{{ item.looks_like or '—' }}</td></tr>{% endfor %}</tbody>
+          </table></div>{% endif %}
+        </details>
+      </section>
+    {% endif %}
+
+    <footer>
+      <p>Unicode confusables data: {{ confusables_version }}</p>
+      <p>For educational and preliminary triage use. Analyst review may be appropriate.</p>
+      <p><a href="https://www.frederickdataforensics.net/" data-fdf-link="footer">Visit Frederick Data Forensics</a>
+        | <a href="https://www.frederickdataforensics.net/privacy-storage-and-data-integrity">Privacy, Storage and Data Integrity</a></p>
+      {% if analytics_enabled %}
+      <p class="help">Google Analytics measures visits and checker actions. Our analytics code does not send submitted domains, links, comparison domains or result details. Google may process device, connection and cookie information.</p>
+      <label class="help"><input type="checkbox" id="usage-analytics" checked> Allow usage analytics on this browser</label>
+      <p id="analytics-preference" class="help" role="status">Without JavaScript, usage analytics is not loaded.</p>
+      {% endif %}
+    </footer>
+  </main>
+</body>
+</html>
